@@ -332,7 +332,7 @@ def create_role(role_name, description, tags, role_services, component_name, acc
             "RoleName": role_name,
             "AssumeRolePolicyDocument": json.dumps(assume_role_policy),
             "Description": description or f"CK role for component {component_name}",
-            "Tags": tags
+            "Tags": format_tags(tags) or None
         })
 
         role_response = iam_client.create_role(**role_params).get("Role")
