@@ -1,0 +1,157 @@
+{
+    "components": {
+        "policy": {
+            "type": "ext",
+            "displayname": "CK IAM Policy",
+            "cloud": "AWS",
+            "resources": ["AWS::iam::policy"],
+            "policy": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Sid": "Vis",
+                    "Effect": "Allow",
+                    "Action": [
+                        "iam:CreatePolicy",
+                        "iam:CreatePolicyVersion",
+                        "iam:DeletePolicy",
+                        "iam:DeletePolicyVersion",
+                        "iam:GetPolicy",
+                        "iam:DetachGroupPolicy",
+                        "iam:DetachRolePolicy",
+                        "iam:DetachUserPolicy",
+                        "iam:ListEntitiesForPolicy",
+                        "iam:ListPolicyVersions"
+                    ],
+                    "Resource": "*"
+                }]
+            },
+            "input": {
+                "type": "object",
+                "properties": {
+                    "document": {
+                        "type": "object",
+                        "description": "A full IAM policy document, as described here (we recommend scrolling down to the Lambda example in most cases): https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_examples.html"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "A description to attach to the policy"
+                    },
+                    "policy_name": {
+                        "type": "string",
+                        "description": "The name of the policy. Will be auto-generated if not specified"
+                    }
+                },
+                "required": [
+                    "policy"
+                ]
+            },
+            "props": {
+                "arn": {
+                    "type": "string",
+                    "description": "The ARN of the policy"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the policy"
+                },
+                "policy_hash": {
+                    "type": "string",
+                    "description": "A way to compare the values of differing policies. Not a hash"
+                }
+            }
+        },
+        "role": {
+            "type": "ext",
+            "displayname": "CK IAM Role",
+            "cloud": "AWS",
+            "resources": ["AWS::iam::role"],
+            "policy": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Sid": "Vis",
+                    "Effect": "Allow",
+                    "Action": [
+                        "iam:AttachRolePolicy",
+                        "iam:DetachRolePolicy",
+                        "iam:UpdateAssumeRolePolicy",
+                        "iam:CreateRole",
+                        "iam:UpdateRole",
+                        "iam:GetRole",
+                        "iam:ListAttachedRolePolicies",
+                        "iam:DeleteRole",
+                        "iam:ListRoleTags",
+                        "iam:TagRole",
+                        "iam:UntagRole"
+                    ],
+                    "Resource": "*"
+                }]
+            },
+            "input": {
+                "type": "object",
+                "properties": {
+                    "policies": {
+                        "type": "array",
+                        "description": "A list of component references to components that reference policy_arn in their props. Can be used in combination with policy_arns"
+                    },
+                    "policy_arns": {
+                        "type": "array",
+                        "description": "A list of policy ARNs to attach to this role. Can be used in combination with policies"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "A description to attach to the role. Will be auto-generated if not specified"
+                    },
+                    "include_basic_lambda_policy": {
+                        "type": "boolean",
+                        "description": "If true, attaches the AWSBasicLambdaExecutionRole policy to this role",
+                        "default": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the role. Will be auto-generated if not specified"
+                    },
+                    "max_session_duration_seconds": {
+                        "type": "integer",
+                        "description": "Not certain what this does"
+                    }
+                },
+                "oneOf": [
+                    {
+                        "required": [
+                            "policies"
+                        ]
+                    },
+                    {
+                        "required": [
+                            "policy_arns"
+                        ]
+                    }
+                ]
+            },
+            "props": {
+                "arn": {
+                    "type": "string",
+                    "description": "The ARN of the role"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the role"
+                },
+                "policy_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of the Policy ARNs attached to this role"
+                },
+                "role_services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A list of the services this role can attach to"
+                }
+            }
+        }
+    }
+}
