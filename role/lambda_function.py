@@ -227,8 +227,9 @@ def remove_role():
 def add_policy_arns(role_name):
     iam_client = boto3.client("iam")
     add_policy_arns = eh.ops['add_policy_arns']
+    iter_add_policy_arns = list(add_policy_arns)
 
-    for add_policy_arn in add_policy_arns:
+    for add_policy_arn in iter_add_policy_arns:
         try:
             attach_response = iam_client.attach_role_policy(
                 RoleName=role_name,
@@ -389,8 +390,8 @@ def create_assume_role_policy(role_services):
     '''
     #ldkfjd
     in_policy_services = list(map(lambda x: (x if x.endswith(".amazonaws.com") else f"{x}.amazonaws.com"), role_services))
-    # if len(in_policy_services) == 1:
-    #     in_policy_services = in_policy_services[0]
+    if len(in_policy_services) == 1:
+        in_policy_services = in_policy_services[0]
     return {
         "Version": "2012-10-17",
         "Statement": [
