@@ -92,6 +92,7 @@ def get_role(prev_state, role_name, role_services, desired_policy_arns, descript
             "name": role_response['RoleName'],
             "role_id": role_response['RoleId']
         })
+        eh.add_links({"Role": gen_iam_role_link(role_name)})
 
         old_description = role_response['Description']
         old_msds = role_response['MaxSessionDuration']
@@ -368,6 +369,7 @@ def update_role(role_name, description, max_session_duration_seconds):
             MaxSessionDuration=max_session_duration_seconds
         )
         eh.add_log("Updated Role", response)
+    
         # add_arns = list(set(desired_policy_arns)-set(attached_policy_arns)) or None
         # remove_policy_arns = list(set(attached_policy_arns)-set(desired_policy_arns)) or None
 
