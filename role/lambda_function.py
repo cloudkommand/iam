@@ -189,7 +189,7 @@ def remove_role():
         print(f"list_response = {list_response}")
 
     except botocore.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchEntityException':
+        if e.response['Error']['Code'] in ['NoSuchEntityException', 'NoSuchEntity']:
             eh.add_log(f"Role Does Not Exist", {"role_name": role_name})
             eh.complete_op("remove_old")
             return None
