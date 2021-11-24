@@ -3,6 +3,7 @@
         "policy": {
             "type": "ext",
             "displayname": "CK IAM Policy",
+            "description": "Deploys an AWS IAM Policy. IAM policies grant permissions to AWS resources or identities",
             "cloud": "AWS",
             "resources": ["AWS::iam::policy"],
             "policy": {
@@ -63,6 +64,7 @@
         "role": {
             "type": "ext",
             "displayname": "CK IAM Role",
+            "description": "Deploys an AWS IAM Role. An IAM role is an AWS identity that can be assumed by other AWS identities or resources",
             "cloud": "AWS",
             "resources": ["AWS::iam::role"],
             "policy": {
@@ -112,7 +114,16 @@
                     },
                     "max_session_duration_seconds": {
                         "type": "integer",
-                        "description": "Not certain what this does"
+                        "description": "Used to limit how long the role can be assumed by an identity or resource"
+                    },
+                    "role_services": {
+                        "type": "array",
+                        "description": "A list of services that this role can attach to",
+                        "default": ["lambda"]
+                    },
+                    "tags": {
+                        "type": "object",
+                        "description": "The tags to attach to this role"
                     }
                 },
                 "oneOf": [
