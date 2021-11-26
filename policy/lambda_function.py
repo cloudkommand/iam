@@ -43,8 +43,8 @@ def lambda_handler(event, context):
         get_policy(prev_state, policy_name, policy_hash, policy_arn, tags)
         create_policy(policy_name, description, path, policy_hash, account_number,tags)
         create_policy_version(policy_arn, policy_name, policy_hash)
-        add_tags(policy_arn, tags)
         remove_tags(policy_arn)
+        add_tags(policy_arn, tags)
         remove_policy()
             
         return eh.finish()
