@@ -21,7 +21,9 @@
                         "iam:DetachRolePolicy",
                         "iam:DetachUserPolicy",
                         "iam:ListEntitiesForPolicy",
-                        "iam:ListPolicyVersions"
+                        "iam:ListPolicyVersions",
+                        "iam:TagPolicy",
+                        "iam:UntagPolicy"
                     ],
                     "Resource": "*"
                 }]
