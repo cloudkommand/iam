@@ -151,7 +151,7 @@ def get_role(prev_state, role_name, role_services, desired_policy_arns, descript
         eh.add_log("Got Tags", {"tags": tags})
         if tags != desired_tags:
             eh.add_op("add_tags")
-        old_keys = set(tags.keys()) - set(desired_tags.keys())
+        old_keys = list(set(tags.keys()) - set(desired_tags.keys()))
         if old_keys:
             eh.add_op("remove_tags", old_keys)
 
@@ -319,7 +319,7 @@ def remove_tags(role_name):
         eh.add_log("Tags Removed", {"tags_removed": remove_tags})
 
     except botocore.exceptions.ClientError as e:
-        eh.add_log("Set Tags Error", {"error": str(e)}, True)
+        eh.add_log("Remove Tags Error", {"error": str(e)}, True)
         eh.retry_error(str(e), 40)
         
 
