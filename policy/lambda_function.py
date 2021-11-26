@@ -3,9 +3,10 @@ import botocore
 # import jsonschema
 import json
 import traceback
+from botocore.exceptions import ClientError
 
 from extutil import remove_none_attributes, account_context, ExtensionHandler, \
-    ext, component_safe_name
+    ext, component_safe_name, handle_common_errors
 
 eh = ExtensionHandler()
 
@@ -23,25 +24,28 @@ def lambda_handler(event, context):
         document = cdef.get("document")
         policy_hash = json.dumps(document, sort_keys=True)
         policy_name = cdef.get("name") or component_safe_name(project_code, repo_id, cname)
-        path = "/kloudcommand/" #Not sure how well this is supported, probably poorly
+        path = "/cloudkommand/" #Not sure how well this is supported, probably poorly
         policy_arn = gen_iam_policy_arn(policy_name, account_number, path)
         pass_back_data = event.get("pass_back_data", {})
         description = cdef.get("description") or "This policy was created by CloudKommand"
+        tags = cdef.get("tags")
         if pass_back_data:
             pass
         elif event.get("op") == "upsert":
-            if not prev_state:
-                eh.add_op("create_policy")
-            else:
-                eh.add_op("get_policy")
+            # if not prev_state:
+            #     eh.add_op("create_policy")
+            # else:
+            eh.add_op("get_policy")
 
         elif event.get("op") == "delete":
-            eh.add_op("remove_policy", {"arn":prev_state.get("props").get("arn"), "complete": True})
+            eh.add_op("remove_policy", {"arn":prev_state.get("props", {}).get("arn") or policy_arn, "complete": True})
         
-        get_policy(prev_state, policy_name, policy_hash)
-        remove_policy()
-        create_policy(policy_name, description, path, policy_hash, account_number)
+        get_policy(prev_state, policy_name, policy_hash, policy_arn, tags)
+        create_policy(policy_name, description, path, policy_hash, account_number,tags)
         create_policy_version(policy_arn, policy_name, policy_hash)
+        add_tags(policy_arn, tags)
+        remove_tags(policy_arn)
+        remove_policy()
             
         return eh.finish()
 
@@ -62,7 +66,7 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
             SetAsDefault=True
         )
         eh.add_log("Created New Policy Version", policy_response)
-    except botocore.exceptions.ClientError as e:
+    except ClientError as e:
         eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
         if e.response['Error']['Code'] == 'MalformedPolicyDocument':
             eh.declare_return(200, 0, error_code=str(e), error_details={"policy": policy_hash}, callback=False)
@@ -87,22 +91,15 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
     except Exception as e:
         eh.add_log("Error in Deleting Old Policy Versions", {"error": str(e)}, is_error=True)
 
-    props={
-        "arn": policy_arn,
-        "name": policy_name,
-        "policy_hash": policy_hash
-    }
+    eh.add_props({"arn": policy_arn, "name": policy_name, "policy_hash": policy_hash})
+    eh.add_links({"Policy": gen_iam_policy_link(policy_arn)})
 
-    links = {
-        "Policy": gen_iam_policy_link(policy_arn)
-    }
-
-    eh.complete_op("create_policy_version")
-    eh.declare_return(200, 100, success=True, props=props, links=links)
+    # eh.complete_op("create_policy_version")
+    # eh.declare_return(200, 100, success=True, props=props, links=links)
 
 
 @ext(handler=eh, op="create_policy")
-def create_policy(policy_name, description, path, policy_hash, account_number):
+def create_policy(policy_name, description, path, policy_hash, account_number, tags):
 
     iam_client = boto3.client("iam")
     try:
@@ -110,39 +107,36 @@ def create_policy(policy_name, description, path, policy_hash, account_number):
             "PolicyName": policy_name,
             "Description": description,
             "Path": path,
-            "PolicyDocument": policy_hash
+            "PolicyDocument": policy_hash,
+            "Tags": format_tags(tags) or None
         }))
 
         eh.add_log("Created Policy", result)
 
-        props={
+        eh.add_props({
             "arn": result["Policy"]["Arn"],
             "name": policy_name,
             "policy_hash": policy_hash
-        }
+        })
 
-        links = {
-            "Policy": gen_iam_policy_link(result["Policy"]["Arn"])
-        }
-
-        eh.declare_return(200, 100, success=True, props=props, links=links)
+        eh.add_links({"Policy": gen_iam_policy_link(result["Policy"]["Arn"])})
     
-    except botocore.exceptions.ClientError as e:
+    except ClientError as e:
         if e.response['Error']['Code'] == 'EntityAlreadyExists':
-            eh.add_log("Policy Already Exists")
+            eh.add_log("Policy Already Exists", {"name": policy_name})
             eh.add_op("create_policy_version")
         elif e.response['Error']['Code'] == 'MalformedPolicyDocument':
-            eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
+            eh.add_log("Policy Document Invalid", {"error": str(e)}, is_error=True)
             eh.declare_return(200, 0, error_code=str(e), error_details={"policy": policy_hash}, callback=False)
             return 0
         else:
             eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
             raise e
 
-    eh.complete_op("create_policy")
+    # eh.complete_op("create_policy")
 
 @ext(handler=eh, op="get_policy")
-def get_policy(prev_state, policy_name, policy_hash):
+def get_policy(prev_state, policy_name, policy_hash, policy_arn, tags):
     try:
         old_policy_arn = prev_state["props"]["arn"]
         old_policy_name = prev_state["props"]["name"]
@@ -154,26 +148,73 @@ def get_policy(prev_state, policy_name, policy_hash):
         # old_policy_hash = None
 
     iam_client = boto3.client("iam")
-    if old_policy_arn:
-        try:
-            policy_response = iam_client.get_policy(PolicyArn=old_policy_arn)
-            eh.add_log("Got Existing Policy", policy_response)
-            if policy_name != old_policy_name:
-                eh.add_op("remove_old", {"arn": old_policy_arn, "complete": False})
-                eh.add_op("create_policy")
-            else:
-                eh.add_op("create_policy_version")
+    # if old_policy_arn:
+    try:
+        policy_response = iam_client.get_policy(PolicyArn=policy_arn)
+        eh.add_log("Got Existing Policy", policy_response)
+        if policy_name != old_policy_name:
+            eh.add_op("remove_old", {"arn": old_policy_arn, "complete": False})
+            eh.add_op("create_policy")
+        else:
+            eh.add_op("create_policy_version")
+            current_tags = unformat_tags(policy_response['Policy'].get("Tags"))
+            if tags != current_tags:
+                remove_tags = [k for k in current_tags.keys() if k not in tags]
+                add_tags = {k:v for k,v in tags.items() if k not in current_tags.keys()}
+                if remove_tags:
+                    eh.add_op("remove_tags", remove_tags)
+                if add_tags:
+                    eh.add_op("add_tags", add_tags)
 
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchEntity':
-                eh.add_op("create_policy")
-            else:
-                eh.add_log("Get Policy Failed", e.response, is_error=True)
-                eh.declare_return(200, 0, error_message="get_policy_failed", callback_sec=4)
-    else:
-        eh.add_op("create_policy")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NoSuchEntity':
+            eh.add_op("create_policy")
+        else:
+            eh.add_log("Get Policy Failed", e.response, is_error=True)
+            eh.declare_return(200, 0, error_message="get_policy_failed", callback_sec=4)
+    # else:
+    #     eh.add_op("create_policy")
 
-    eh.complete_op("get_policy")
+@ext(handler=eh, op="add_tags")
+def add_tags(policy_arn, tags):
+    iam_client = boto3.client("iam")
+
+    formatted_tags = format_tags(tags)
+
+    try:
+        response = iam_client.tag_policy(
+            PolicyArn=policy_arn,
+            Tags=formatted_tags
+        )
+        eh.add_log("Tags Set", response)
+
+    except ClientError as e:
+        if e.response['Error']['Code'] in ["LimitExceededException"]:
+            eh.add_log("Tag Limit Hit", {"tags": tags, "policy_arn": policy_arn}, True)
+            eh.perm_error("Tag Limit Hit", 70)
+        elif e.response['Error']['Code'] in ["InvalidInputException"]:
+            eh.add_log("Invalid Tags", {"tags": tags, "policy_arn": policy_arn}, True)
+            eh.perm_error("Invalid Tags", 70)
+        else:
+            eh.add_log("Set Tags Error", {"error": str(e)}, True)
+            eh.retry_error(str(e), 70)
+        
+
+@ext(handler=eh, op="remove_tags")
+def remove_tags(policy_arn):
+    iam_client = boto3.client("iam")
+    remove_tags = eh.ops['remove_tags']
+
+    try:
+        iam_client.untag_policy(
+            PolicyArn=policy_arn,
+            TagKeys=remove_tags
+        )
+        eh.add_log("Tags Removed", {"tags_removed": remove_tags})
+
+    except ClientError as e:
+        eh.add_log("Remove Tags Error", {"error": str(e)}, True)
+        eh.retry_error(str(e), 85)
 
 #This may be different with "paths"
 def gen_iam_policy_arn(policy_name, account_number, path="/"):
@@ -183,6 +224,12 @@ def gen_iam_policy_arn(policy_name, account_number, path="/"):
 #I bet this is different with "paths"
 def gen_iam_policy_link(policy_arn):
     return f"https://console.aws.amazon.com/iam/home?region=us-east-1#/policies/{policy_arn}$serviceLevelSummary"
+
+def format_tags(tags_dict):
+    return [{"Key": k, "Value": v} for k,v in tags_dict.items()]
+
+def unformat_tags(tags_list):
+    return {v['Key']:v['Value'] for v in tags_list}
 
 @ext(handler=eh, op="remove_policy")
 def remove_policy():
@@ -271,9 +318,9 @@ def remove_policy():
 
     eh.add_log("Deleted Policy", response)
 
-    eh.complete_op("remove_policy")
-    if complete:
-        eh.declare_return(200, 100, success=True)
+    # eh.complete_op("remove_policy")
+    # if complete:
+    #     eh.declare_return(200, 100, success=True)
 
 def get_all_entities_for_policy(policy_arn):
     iam_client = boto3.client("iam")

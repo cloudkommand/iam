@@ -319,7 +319,7 @@ def remove_tags(role_name):
         eh.add_log("Tags Removed", {"tags_removed": remove_tags})
 
     except botocore.exceptions.ClientError as e:
-        eh.add_log("Set Tags Error", {"error": str(e)}, True)
+        eh.add_log("Remove Tags Error", {"error": str(e)}, True)
         eh.retry_error(str(e), 40)
         
 
