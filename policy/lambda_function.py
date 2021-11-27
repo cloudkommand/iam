@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         policy_arn = gen_iam_policy_arn(policy_name, account_number, path)
         pass_back_data = event.get("pass_back_data", {})
         description = cdef.get("description") or "This policy was created by CloudKommand"
-        tags = cdef.get("tags")
+        tags = cdef.get("tags") or {}
         if pass_back_data:
             pass
         elif event.get("op") == "upsert":
@@ -52,6 +52,7 @@ def lambda_handler(event, context):
     except Exception as e:
         msg = traceback.format_exc()
         print(msg)
+        eh.add_log("Uncovered Error", {"error": msg}, is_error=True)
         eh.declare_return(200, 0, error_code=str(e))
         return eh.finish()
 
