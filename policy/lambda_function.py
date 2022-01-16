@@ -92,7 +92,7 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
     except Exception as e:
         eh.add_log("Error in Deleting Old Policy Versions", {"error": str(e)}, is_error=True)
 
-    eh.add_props({"arn": policy_arn, "name": policy_name, "policy_hash": policy_hash})
+    eh.add_props({"arn": policy_arn, "name": policy_name})
     eh.add_links({"Policy": gen_iam_policy_link(policy_arn)})
 
     # eh.complete_op("create_policy_version")
@@ -117,7 +117,7 @@ def create_policy(policy_name, description, path, policy_hash, account_number, t
         eh.add_props({
             "arn": result["Policy"]["Arn"],
             "name": policy_name,
-            "policy_hash": policy_hash
+            # "policy_hash": policy_hash
         })
 
         eh.add_links({"Policy": gen_iam_policy_link(result["Policy"]["Arn"])})
