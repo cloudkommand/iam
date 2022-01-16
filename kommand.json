@@ -56,10 +56,6 @@
                 "name": {
                     "type": "string",
                     "description": "The name of the policy"
-                },
-                "policy_hash": {
-                    "type": "string",
-                    "description": "A way to compare the values of differing policies. Not a hash"
                 }
             }
         },
