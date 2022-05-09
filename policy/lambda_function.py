@@ -72,6 +72,7 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
             eh.add_op("create_policy")
             eh.add_log("Policy Does Not Exist, Retrying Create", {"arn": policy_arn})
             eh.complete_op("create_policy_version")
+            eh.retry_error("Policy Does Not Exist, Retrying Create", 0)
             return 0
         else:
             eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
