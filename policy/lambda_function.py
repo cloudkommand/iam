@@ -68,12 +68,19 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
         )
         eh.add_log("Created New Policy Version", policy_response)
     except ClientError as e:
-        eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
-        if e.response['Error']['Code'] == 'MalformedPolicyDocument':
-            eh.declare_return(200, 0, error_code=str(e), error_details={"policy": policy_hash}, callback=False)
+        if e.response['Error']['Code'] == 'NoSuchEntity':
+            eh.add_op("create_policy")
+            eh.add_log("Policy Does Not Exist, Retrying Create", {"arn": policy_arn})
+            eh.complete_op("create_policy_version")
             return 0
         else:
-            raise e
+            eh.add_log("Error in Creating Policy Version", {"error": str(e)}, is_error=True)
+            if e.response['Error']['Code'] == 'MalformedPolicyDocument':
+                eh.declare_return(200, 0, error_code=str(e), error_details={"policy": policy_hash}, callback=False)
+                return 0
+            else:
+                print(e.response['Error']['Code'])
+                raise e
 
     try:
         response = iam_client.list_policy_versions(
@@ -89,7 +96,7 @@ def create_policy_version(policy_arn, policy_name, policy_hash):
                 )
                 eh.add_log("Deleting Old Policy Version", response)
             
-    except Exception as e:
+    except Exception as e:     
         eh.add_log("Error in Deleting Old Policy Versions", {"error": str(e)}, is_error=True)
 
     eh.add_props({"arn": policy_arn, "name": policy_name})
