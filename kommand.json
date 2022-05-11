@@ -124,7 +124,7 @@
                         "description": "The tags to attach to this role"
                     }
                 },
-                "oneOf": [
+                "anyOf": [
                     {
                         "required": [
                             "policies"
