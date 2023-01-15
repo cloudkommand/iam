@@ -41,7 +41,7 @@ def process_repo_id(repo_id, no_underscores, no_uppercase):
         repo_provider = "g"
         owner_name = safeval(owner_name, no_underscores, no_uppercase)
         repo_name = safeval(repo_name, no_underscores, no_uppercase)
-    elif repo_id.startswith("bitbucket.com/"):
+    elif repo_id.startswith("bitbucket."):
         _, owner_name, repo_name = repo_id.split("/")
         repo_provider = "b"
         owner_name = safeval(owner_name, no_underscores, no_uppercase)
