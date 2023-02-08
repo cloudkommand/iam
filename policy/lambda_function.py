@@ -253,7 +253,7 @@ def remove_policy():
         )
 
     except botocore.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchEntityException':
+        if e.response['Error']['Code'] == 'NoSuchEntity':
             eh.add_log("Old Policy Doesn't Exist", {"policy_arn": policy_arn})
             eh.complete_op("remove_policy")
             if complete:
