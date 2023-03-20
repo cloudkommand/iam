@@ -5,6 +5,7 @@
             "displayname": "CK IAM Policy",
             "description": "Deploys an AWS IAM Policy. IAM policies grant permissions to AWS resources or identities",
             "cloud": "AWS",
+            "ck_plugin_tier": 1,
             "resources": ["AWS::iam::policy"],
             "policy": {
                 "Version": "2012-10-17",
@@ -31,21 +32,27 @@
             "input": {
                 "type": "object",
                 "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the policy. Will be auto-generated if not specified"
+                    },
                     "document": {
                         "type": "object",
                         "description": "A full IAM policy document, as described here (we recommend scrolling down to the Lambda example in most cases): https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_examples.html"
                     },
                     "description": {
                         "type": "string",
-                        "description": "A description to attach to the policy"
+                        "description": "A description to attach to the policy",
+                        "common": true
                     },
-                    "policy_name": {
-                        "type": "string",
-                        "description": "The name of the policy. Will be auto-generated if not specified"
+                    "tags": {
+                        "type": "object",
+                        "description": "The tags to attach to this policy",
+                        "common": true
                     }
                 },
                 "required": [
-                    "policy"
+                    "document"
                 ]
             },
             "props": {
@@ -57,14 +64,72 @@
                     "type": "string",
                     "description": "The name of the policy"
                 }
-            }
+            },
+            "examples": [
+                {
+                    "displayname": "Policy for Interacting with a S3 Bucket",
+                    "notes": "When talking to an S3 bucket, you need permission both to talk to the bucket and the objects in the bucket. This example shows how to do that using the CloudKommand S3 bucket plugin having deployed a component called 'my-bucket'",
+                    "definition": {
+                        "type": "&iam.policy",
+                        "document": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Action": [
+                                    "s3:PutObject*",
+                                    "s3:GetObject*",
+                                    "s3:DeleteObject",
+                                    "s3:ListBucket"
+                                ],
+                                "Resource": [
+                                    "&my-bucket:props.arn",
+                                    "&my-bucket:props.all_objects_arn"
+                                ]
+                            }]
+                        },
+                        "tags": {
+                            "my-tag": "my-value"
+                        }
+                    }
+                },
+                {
+                    "displayname": "Policy for Creating DynamoDB Tables and S3 Buckets",
+                    "notes": "This example shows how to create a policy that allows you to create DynamoDB tables and write to them. It also allows you to create S3 buckets that start with 'my-company-'",
+                    "definition": {
+                        "type": "&iam.policy",
+                        "document": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Action": [
+                                    "dynamodb:CreateTable",
+                                    "dynamodb:PutItem",
+                                    "dynamodb:UpdateItem",
+                                    "dynamodb:DeleteItem",
+                                    "dynamodb:DescribeTable"
+                                ],
+                                "Resource": "*"
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "s3:CreateBucket",
+                                    "s3:ListBucket"
+                                ],
+                                "Resource": "aws:arn:s3:::my-company-*"
+                            }]
+                        }
+                    }
+                }
+            ]
         },
         "role": {
             "type": "ext",
             "displayname": "CK IAM Role",
-            "description": "Deploys an AWS IAM Role. An IAM role is an AWS identity that can be assumed by other AWS identities or resources",
+            "description": "Deploys an AWS IAM Role. An IAM role is an AWS identity that can be assumed by other AWS identities or resources. Often this plugin does not need to be referenced directly, as it is called by other plugins that need to create roles, such as the Lambda plugin",
             "cloud": "AWS",
             "resources": ["AWS::iam::role"],
+            "ck_plugin_tier": 2,
             "policy": {
                 "Version": "2012-10-17",
                 "Statement": [{
@@ -89,13 +154,19 @@
             "input": {
                 "type": "object",
                 "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the role. Will be auto-generated if not specified"
+                    },
                     "policies": {
                         "type": "array",
-                        "description": "A list of component references to components that reference policy_arn in their props. Can be used in combination with policy_arns"
+                        "description": "A list of component references to policy components. Can be used in combination with policy_arns",
+                        "common": true
                     },
                     "policy_arns": {
                         "type": "array",
-                        "description": "A list of policy ARNs to attach to this role. Can be used in combination with policies"
+                        "description": "A list of policy ARNs to attach to this role. Can be used in combination with policies",
+                        "common": true
                     },
                     "description": {
                         "type": "string",
@@ -106,22 +177,19 @@
                         "description": "If true, attaches the AWSBasicLambdaExecutionRole policy to this role",
                         "default": true
                     },
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the role. Will be auto-generated if not specified"
-                    },
                     "max_session_duration_seconds": {
                         "type": "integer",
-                        "description": "Used to limit how long the role can be assumed by an identity or resource"
+                        "description": "Used to limit how long the role can be assumed by an identity or resource. Useful if granting access to a third party."
                     },
                     "role_services": {
                         "type": "array",
-                        "description": "A list of services that this role can attach to",
+                        "description": "A list of services that this role can attach to. If you need to create a role for CodeBuild or EC2, you can specify it here.",
                         "default": ["lambda"]
                     },
                     "tags": {
                         "type": "object",
-                        "description": "The tags to attach to this role"
+                        "description": "The tags to attach to this role",
+                        "common": true
                     }
                 },
                 "anyOf": [
@@ -146,6 +214,10 @@
                     "type": "string",
                     "description": "The name of the role"
                 },
+                "role_id": {
+                    "type": "string",
+                    "description": "The ID of the role"
+                },
                 "policy_names": {
                     "type": "array",
                     "items": {
@@ -160,7 +232,36 @@
                     },
                     "description": "A list of the services this role can attach to"
                 }
-            }
+            },
+            "examples": [
+                {
+                    "displayname": "Lambda Role",
+                    "notes": "This example shows how to create a role that can be assumed by a Lambda function. It attaches the AWSBasicLambdaExecutionRole policy to the role, along with my-lambda-policy, a custom policy created elsewhere in the kommand.json file, and the S3FullAccess policy",
+                    "definition": {
+                        "type": "&iam.role",
+                        "description": "Role for my Lambda function",
+                        "policies": [
+                            "&my-lambda-policy"
+                        ],
+                        "policy_arns": [
+                            "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+                        ],
+                        "tags": {
+                            "my-tag": "my-value"
+                        }
+                    }
+                },
+                {
+                    "displayname": "Role for Codebuild",
+                    "notes": "This example shows how to create a role that can be assumed by a Codebuild project. It attaches codebuild-policy, a custom policy created elsewhere in the kommand.json file",
+                    "definition": {
+                        "type": "&iam.role",
+                        "role_services": ["codebuild"],
+                        "policies": ["&codebuild-policy"],
+                        "include_basic_lambda_policy": false
+                    }
+                }
+            ]
         }
     }
 }
